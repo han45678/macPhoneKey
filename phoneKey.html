@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mac 解鎖器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center h-screen">
+
+    <div class="text-center">
+        <h1 class="text-2xl font-bold mb-8">我的 Mac 鑰匙</h1>
+        <button id="unlockBtn" class="bg-blue-600 hover:bg-blue-700 w-32 h-32 rounded-full shadow-lg flex items-center justify-center transition-all active:scale-95">
+            <span class="text-lg">點擊解鎖</span>
+        </button>８４０７１７
+        <p id="status" class="mt-4 text-gray-400 text-sm px-4">正在檢查連線...</p>
+    </div>
+
+    <!-- 在純瀏覽器模式下不需要 capacitor.js，避免 404 錯誤 -->
+    <!-- <script src="capacitor.js"></script> -->
+    
+    <script>
+        // 安全獲取 Capacitor 對象，避免在普通瀏覽器中報錯導致程式停止
+        const NativeBiometric = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins.NativeBiometric : null;
+        const statusEl = document.getElementById('status');
+        
+        // --- 1. 配對與連線邏輯 ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        
+        // 如果網址帶有 token，視為新配對，存入 localStorage
+        if (urlToken) {
+            localStorage.setItem('macKeyToken', urlToken);
+            localStorage.setItem('macKeyHost', window.location.origin); // 存下 http://192.168.x.x:8888
+            statusEl.innerText = "配對成功！已儲存金鑰";
+            // 清除網址列的 token 避免分享網址時洩漏
+            window.history.replaceState({}, document.title, "/");
+        }
+
+        // 讀取儲存的資料
+        const savedToken = localStorage.getItem('macKeyToken');
+        const savedHost = localStorage.getItem('macKeyHost');
+
+        if (!savedToken) {
+            statusEl.innerText = "尚未配對，請掃描 Mac App 上的 QR Code";
+            document.getElementById('unlockBtn').disabled = true;
+            document.getElementById('unlockBtn').classList.add('opacity-50');
+        } else {
+            statusEl.innerText = "已連線至 Mac";
+        }
+
+        document.getElementById('unlockBtn').addEventListener('click', async () => {
+            if (!savedToken) return;
+
+            try {
+                // 檢查是否在 Capacitor 環境 (App)
+                if (NativeBiometric) {
+                    // 1. 觸發生物辨識 (指紋、人臉、圖形、密碼)
+                    const result = await NativeBiometric.verifyIdentity({
+                        reason: "驗證以解鎖您的 Mac",
+                        title: "安全驗證",
+                        subtitle: "請使用生物辨識或圖形鎖"
+                    });
+
+                    if (result) {
+                        statusEl.innerText = "驗證成功！發送訊號...";
+                        sendWifiSignal();
+                    }
+                } else {
+                    // 如果是在普通瀏覽器 (Safari/Chrome)，直接發送訊號
+                    // (因為瀏覽器無法直接呼叫系統級生物辨識，除非用 WebAuthn，這裡先求方便)
+                    statusEl.innerText = "發送解鎖訊號...";
+                    sendWifiSignal();
+                }
+            } catch (e) {
+                statusEl.innerText = "驗證失敗: " + e.message;
+            }
+        });
+
+        async function sendWifiSignal() {
+            const targetUrl = (savedHost || window.location.origin) + "/unlock";
+            
+            try {
+                const response = await fetch(targetUrl, {
+                    method: 'POST',
+                    body: JSON.stringify({ token: savedToken }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    statusEl.innerText = "解鎖成功！";
+                    setTimeout(() => statusEl.innerText = "已連線至 Mac", 2000);
+                } else {
+                    statusEl.innerText = "解鎖失敗 (403 Forbidden)";
+                }
+            } catch (err) {
+                statusEl.innerText = "連線錯誤: " + err.message;
+                statusEl.innerHTML += '<br><span class="text-yellow-400 text-sm">若 IP 已變更，請重新掃描 QR Code</span>';
+            }
+        }
+    </script>
+</body>
+</html>
