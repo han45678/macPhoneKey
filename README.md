@@ -1,3 +1,8 @@
+rm -rf dist build
+python setup.py py2app
+
+
+
 MAC電腦輸入電腦的登入密碼後 
 顯示QR Code 
 手機掃描開啟網頁後 
