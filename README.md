@@ -1,7 +1,7 @@
-<img width="420" height="198" alt="image" src="https://github.com/user-attachments/assets/6412efc7-4b95-4e1e-b219-f893f4711dfe" />rm -rf dist build
+rm -rf dist build<br>
 python setup.py py2app
 
-
+-----------------------
 
 MAC電腦輸入電腦的登入密碼後 
 顯示QR Code 
