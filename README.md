@@ -1,4 +1,4 @@
-rm -rf dist build
+<img width="420" height="198" alt="image" src="https://github.com/user-attachments/assets/6412efc7-4b95-4e1e-b219-f893f4711dfe" />rm -rf dist build
 python setup.py py2app
 
 
@@ -12,3 +12,6 @@ MAC電腦輸入電腦的登入密碼後
 手機與電腦必須在同個網路下！！！
 
 完成品可以直接雲端下載(https://drive.google.com/file/d/1bmq91sFTLVIvVxL4RryEjpU87Pz7jIFC/view?usp=sharing)
+
+這個記得要打開↓
+<img width="700" height="388" alt="image" src="https://github.com/user-attachments/assets/bbbfed1a-42b6-4a06-9052-954712a8356e" />
