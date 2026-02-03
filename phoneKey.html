@@ -1,40 +1,44 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac 解鎖器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mac鑰匙</title>
+    
+    <!-- Icon 與 PWA 設定：解決 Mac Tab 與手機桌面 Icon 消失的問題 -->
+    <link rel="icon" href="https://ui-avatars.com/api/?name=Mac+Key&background=2563eb&color=fff&rounded=true" type="image/png">
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=Mac+Key&background=2563eb&color=fff&size=512&rounded=true">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mac Key">
+
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="bg-gray-900 text-white flex flex-col items-center justify-center h-screen">
-    <div 
-        class="text-center" 
-        style="
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-        "
-    >
-        <h1 class="text-2xl font-bold mb-8" style="width: 100%;">Mac鑰匙</h1>
+
+    <!-- 已將 style 樣式轉換為 Tailwind class -->
+    <div class="text-center flex flex-wrap justify-center items-center">
+        <h1 class="text-2xl font-bold mb-8 w-full">Mac鑰匙</h1>
         <button id="unlockBtn" class="bg-blue-600 hover:bg-blue-700 w-32 h-32 rounded-full shadow-lg flex items-center justify-center transition-all active:scale-95">
             <span class="text-lg">點擊解鎖</span>
         </button>
-        <p id="status" class="mt-4 text-gray-400 text-sm px-4" style="width: 100%;">正在檢查連線...</p>
+        <p id="status" class="mt-4 text-gray-400 text-sm px-4 w-full">正在檢查連線...</p>
     </div>
 
     <!-- 在純瀏覽器模式下不需要 capacitor.js，避免 404 錯誤 -->
     <!-- <script src="capacitor.js"></script> -->
-    
+
     <script>
         // 安全獲取 Capacitor 對象，避免在普通瀏覽器中報錯導致程式停止
         const NativeBiometric = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins.NativeBiometric : null;
         const statusEl = document.getElementById('status');
-        
+
         // --- 1. 配對與連線邏輯 ---
         const urlParams = new URLSearchParams(window.location.search);
         const urlToken = urlParams.get('token');
-        
+
         // 如果網址帶有 token，視為新配對，存入 localStorage
         if (urlToken) {
             localStorage.setItem('macKeyToken', urlToken);
@@ -85,8 +89,13 @@
         });
 
         async function sendWifiSignal() {
-            const targetUrl = (savedHost || window.location.origin) + "/unlock";
-            
+            // 優先使用當前網址 (若為 http/s)，避免 savedHost 紀錄到舊 IP 導致連線失敗
+            let baseUrl = window.location.origin;
+            if (!baseUrl.startsWith('http') && savedHost) {
+                baseUrl = savedHost;
+            }
+            const targetUrl = baseUrl + "/unlock";
+
             try {
                 const response = await fetch(targetUrl, {
                     method: 'POST',
@@ -98,6 +107,10 @@
 
                 if (response.ok) {
                     statusEl.innerText = "解鎖成功！";
+                    // 連線成功後更新 savedHost，確保資料同步
+                    if (baseUrl.startsWith('http')) {
+                        localStorage.setItem('macKeyHost', baseUrl);
+                    }
                     setTimeout(() => statusEl.innerText = "已連線至 Mac", 2000);
                 } else {
                     statusEl.innerText = "解鎖失敗 (403 Forbidden)";
@@ -109,4 +122,5 @@
         }
     </script>
 </body>
+
 </html>
