@@ -7,13 +7,20 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white flex flex-col items-center justify-center h-screen">
-
-    <div class="text-center">
-        <h1 class="text-2xl font-bold mb-8">我的 Mac 鑰匙</h1>
+    <div 
+        class="text-center" 
+        style="
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        "
+    >
+        <h1 class="text-2xl font-bold mb-8" style="width: 100%;">Mac鑰匙</h1>
         <button id="unlockBtn" class="bg-blue-600 hover:bg-blue-700 w-32 h-32 rounded-full shadow-lg flex items-center justify-center transition-all active:scale-95">
             <span class="text-lg">點擊解鎖</span>
         </button>
-        <p id="status" class="mt-4 text-gray-400 text-sm px-4">正在檢查連線...</p>
+        <p id="status" class="mt-4 text-gray-400 text-sm px-4" style="width: 100%;">正在檢查連線...</p>
     </div>
 
     <!-- 在純瀏覽器模式下不需要 capacitor.js，避免 404 錯誤 -->
