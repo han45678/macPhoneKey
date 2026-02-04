@@ -1,126 +1,291 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mac鑰匙</title>
-    
-    <!-- Icon 與 PWA 設定：解決 Mac Tab 與手機桌面 Icon 消失的問題 -->
-    <link rel="icon" href="https://ui-avatars.com/api/?name=Mac+Key&background=2563eb&color=fff&rounded=true" type="image/png">
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=Mac+Key&background=2563eb&color=fff&size=512&rounded=true">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Mac Key">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mac Face Unlock</title>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<style>
+body {
+  background: #1e1e1e;
+  color: #fff;
+  font-family: "Segoe UI", sans-serif;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  margin: 0;
+}
 
-    <script src="https://cdn.tailwindcss.com"></script>
+.app {
+  text-align: center;
+  width: 100%;
+  max-width: 680px;
+}
+
+.status {
+  background: #333;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  color: #ffcc00;
+  font-weight: bold;
+}
+
+.controls {
+  margin-bottom: 15px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+input {
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+}
+
+button {
+  padding: 8px 15px;
+  cursor: pointer;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+button:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: #f44336;
+}
+
+.video-container {
+  position: relative;
+  width: 100%;
+  max-width: 640px; 
+  height: auto; 
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #000;
+}
+
+video {
+  width: 100%;
+  height: auto;
+  display: block;
+  transform: scaleX(-1); /* 鏡像翻轉 */
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scaleX(-1); /* Canvas 也要一起鏡像翻轉 */
+}
+
+.overlay-layer {
+  position: absolute;
+  top: 0; 
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  transform: scaleX(-1); /* 翻轉回來以顯示文字 */
+}
+
+.overlay-content {
+  text-align: center;
+  color: white;
+  transform: scaleX(-1); /* 文字內容再翻轉一次確保正向 */
+}
+
+#btnNext {
+  font-size: 1.2rem;
+  padding: 10px 20px;
+  background: #2196F3;
+  border: 2px solid #fff;
+  margin-top: 10px;
+}
+</style>
 </head>
+<body>
 
-<body class="bg-gray-900 text-white flex flex-col items-center justify-center h-screen">
+<div class="app">
+  <h3>Mac 人臉解鎖</h3>
+  <div class="status" id="status">⏳ 模型載入中...</div>
 
-    <!-- 已將 style 樣式轉換為 Tailwind class -->
-    <div class="text-center flex flex-wrap justify-center items-center">
-        <h1 class="text-2xl font-bold mb-8 w-full">Mac鑰匙</h1>
-        <button id="unlockBtn" class="bg-blue-600 hover:bg-blue-700 w-32 h-32 rounded-full shadow-lg flex items-center justify-center transition-all active:scale-95">
-            <span class="text-lg">點擊解鎖</span>
-        </button>
-        <p id="status" class="mt-4 text-gray-400 text-sm px-4 w-full">正在檢查連線...</p>
+  <div class="controls">
+    <input type="text" id="nameInput" placeholder="輸入名字 (例: User)">
+    <button onclick="startRegisterProcess()" id="btnRegister" disabled>📸 開始註冊</button>
+    <!-- 辨識功能已移至 Mac 背景執行 -->
+  </div>
+
+  <div class="video-container">
+    <video id="video" autoplay muted playsinline></video>
+    <div id="overlay-layer" class="overlay-layer" style="display: none;">
+        <div class="overlay-content">
+            <h2 id="overlay-msg">✅ 擷取成功！</h2>
+            <button id="btnNext" onclick="nextStep()">➡️ 繼續下一張</button>
+        </div>
     </div>
+  </div>
+</div>
 
-    <!-- 在純瀏覽器模式下不需要 capacitor.js，避免 404 錯誤 -->
-    <!-- <script src="capacitor.js"></script> -->
+<script>
+const video = document.getElementById('video');
+const statusDiv = document.getElementById('status');
+const overlayLayer = document.getElementById('overlay-layer');
+const overlayMsg = document.getElementById('overlay-msg');
+const btnRegister = document.getElementById('btnRegister');
 
-    <script>
-        // 安全獲取 Capacitor 對象，避免在普通瀏覽器中報錯導致程式停止
-        const NativeBiometric = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins.NativeBiometric : null;
-        const statusEl = document.getElementById('status');
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
-        // --- 1. 配對與連線邏輯 ---
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlToken = urlParams.get('token');
+const REGISTRATION_STEPS = [
+  { label: "1/5 請正對鏡頭 😐", desc: "正臉" },
+  { label: "2/5 請微微向左轉 👈", desc: "左側臉" },
+  { label: "3/5 請微微向右轉 👉", desc: "右側臉" },
+  { label: "4/5 請微微抬頭 👆", desc: "抬頭" },
+  { label: "5/5 請微微低頭 👇", desc: "低頭" }
+];
 
-        // 如果網址帶有 token，視為新配對，存入 localStorage
-        if (urlToken) {
-            localStorage.setItem('macKeyToken', urlToken);
-            localStorage.setItem('macKeyHost', window.location.origin); // 存下 http://192.168.x.x:8888
-            statusEl.innerText = "配對成功！已儲存金鑰";
-            // 清除網址列的 token 避免分享網址時洩漏
-            window.history.replaceState({}, document.title, "/");
-        }
+let currentStepIndex = 0;
+let collectedImages = []; // 改為儲存圖片 Base64
+let isRegistering = false;
+let isPaused = false;
+let lastUnlockTime = 0; // 防止重複觸發解鎖
 
-        // 讀取儲存的資料
-        const savedToken = localStorage.getItem('macKeyToken');
-        const savedHost = localStorage.getItem('macKeyHost');
+// 1. 初始化
+Promise.all([
+  faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+  faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+  faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+]).then(startVideo).catch(err => statusDiv.innerText = "❌ 模型載入失敗 (請檢查網路)");
 
-        if (!savedToken) {
-            statusEl.innerText = "尚未配對，請掃描 Mac App 上的 QR Code";
-            document.getElementById('unlockBtn').disabled = true;
-            document.getElementById('unlockBtn').classList.add('opacity-50');
-        } else {
-            statusEl.innerText = "已連線至 Mac";
-        }
+// 2. 開啟相機
+async function startVideo() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+    });
+    video.srcObject = stream;
+    video.addEventListener('play', () => {
+       statusDiv.innerText = "✅ 系統就緒";
+       btnRegister.disabled = false;
+    });
+  } catch (err) {
+    statusDiv.innerText = "❌ 無法開啟相機";
+  }
+}
 
-        document.getElementById('unlockBtn').addEventListener('click', async () => {
-            if (!savedToken) return;
+// 3. 開始註冊流程
+function startRegisterProcess() {
+  const name = document.getElementById('nameInput').value;
+  if (!name) return alert("請輸入名字");
 
-            try {
-                // 檢查是否在 Capacitor 環境 (App)
-                if (NativeBiometric) {
-                    // 1. 觸發生物辨識 (指紋、人臉、圖形、密碼)
-                    const result = await NativeBiometric.verifyIdentity({
-                        reason: "驗證以解鎖您的 Mac",
-                        title: "安全驗證",
-                        subtitle: "請使用生物辨識或圖形鎖"
-                    });
+  currentStepIndex = 0;
+  collectedImages = [];
+  isRegistering = true;
+  isPaused = false;
+  
+  btnRegister.disabled = true;
+  overlayLayer.style.display = 'none';
+  statusDiv.innerText = `📸 準備開始：${REGISTRATION_STEPS[0].label}`;
+  
+  registrationLoop(name);
+}
 
-                    if (result) {
-                        statusEl.innerText = "驗證成功！發送訊號...";
-                        sendWifiSignal();
-                    }
-                } else {
-                    // 如果是在普通瀏覽器 (Safari/Chrome)，直接發送訊號
-                    // (因為瀏覽器無法直接呼叫系統級生物辨識，除非用 WebAuthn，這裡先求方便)
-                    statusEl.innerText = "發送解鎖訊號...";
-                    sendWifiSignal();
-                }
-            } catch (e) {
-                statusEl.innerText = "驗證失敗: " + e.message;
-            }
-        });
+function registrationLoop(name) {
+  const timer = setInterval(async () => {
+    if (!isRegistering || isPaused) return;
 
-        async function sendWifiSignal() {
-            // 優先使用當前網址 (若為 http/s)，避免 savedHost 紀錄到舊 IP 導致連線失敗
-            let baseUrl = window.location.origin;
-            if (!baseUrl.startsWith('http') && savedHost) {
-                baseUrl = savedHost;
-            }
-            const targetUrl = baseUrl + "/unlock";
+    if (currentStepIndex >= REGISTRATION_STEPS.length) {
+      finishRegistration(name, timer);
+      return;
+    }
 
-            try {
-                const response = await fetch(targetUrl, {
-                    method: 'POST',
-                    body: JSON.stringify({ token: savedToken }),
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
+    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
 
-                if (response.ok) {
-                    statusEl.innerText = "解鎖成功！";
-                    // 連線成功後更新 savedHost，確保資料同步
-                    if (baseUrl.startsWith('http')) {
-                        localStorage.setItem('macKeyHost', baseUrl);
-                    }
-                    setTimeout(() => statusEl.innerText = "已連線至 Mac", 2000);
-                } else {
-                    statusEl.innerText = "解鎖失敗 (403 Forbidden)";
-                }
-            } catch (err) {
-                statusEl.innerText = "連線錯誤: " + err.message;
-                statusEl.innerHTML += '<br><span class="text-yellow-400 text-sm">若 IP 已變更，請重新掃描 QR Code</span>';
-            }
-        }
-    </script>
+    if (detection) {
+      // 擷取當前畫面為圖片
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      collectedImages.push(canvas.toDataURL('image/jpeg'));
+
+      isPaused = true; 
+      showContinueOverlay();
+    } else {
+      statusDiv.innerText = `⚠️ 偵測中... ${REGISTRATION_STEPS[currentStepIndex].label}`;
+    }
+  }, 500);
+}
+
+function showContinueOverlay() {
+  const stepInfo = REGISTRATION_STEPS[currentStepIndex];
+  overlayMsg.innerText = `✅ [${stepInfo.desc}] 擷取成功！`;
+  overlayLayer.style.display = 'flex';
+  statusDiv.innerText = "⏸️ 等待繼續...";
+}
+
+function nextStep() {
+  overlayLayer.style.display = 'none';
+  currentStepIndex++;
+  if (currentStepIndex < REGISTRATION_STEPS.length) {
+    isPaused = false;
+    statusDiv.innerText = `📸 下一張：${REGISTRATION_STEPS[currentStepIndex].label}`;
+    statusDiv.style.color = "#FFD700";
+  } else {
+    isPaused = false; 
+  }
+}
+
+function finishRegistration(name, timer) {
+  clearInterval(timer);
+  isRegistering = false;
+  
+  statusDiv.innerText = "📤 正在傳送資料到 Mac...";
+  
+  // 傳送圖片到 Python 後端
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+
+  fetch('/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+          token: token,
+          name: name,
+          images: collectedImages 
+      })
+  })
+  .then(response => {
+      if (response.ok) {
+          statusDiv.innerText = `🎉 ${name} 註冊成功！Mac 鎖定時將自動辨識。`;
+          statusDiv.style.color = "#4CAF50";
+          alert("註冊成功！現在您可以鎖定 Mac 進行測試。");
+      } else {
+          statusDiv.innerText = "❌ 註冊失敗";
+      }
+      btnRegister.disabled = false;
+  })
+  .catch(err => {
+      console.error(err);
+      statusDiv.innerText = "❌ 連線錯誤";
+  });
+}
+</script>
 </body>
-
 </html>
